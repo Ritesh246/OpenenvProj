@@ -9,7 +9,7 @@ class HospitalEnvironment:
 
     def reset(self):
         self.step_count = 0
-        self.max_steps = 20
+        self.max_steps = 20   # ✅ LIMIT
 
         self.num_doctors = random.randint(2, 5)
         self.num_patients = random.randint(5, 10)
@@ -20,10 +20,6 @@ class HospitalEnvironment:
             {"id": i, "critical": random.choice([True, False]), "treated": False}
             for i in range(self.num_patients)
         ]
-
-        # ✅ AFTER patients created
-        self.total_critical = sum(p["critical"] for p in self.patients)
-        self.critical_treated = 0
 
         return HospitalObservation(
             waiting_patients=[p["id"] for p in self.patients],
@@ -63,8 +59,6 @@ class HospitalEnvironment:
         self.step_count += 1
         reward = 0
 
-        valid_assignment = False
-
         if action.action_type == "assign_doctor":
             if (
                 action.patient_id is not None and
@@ -76,52 +70,33 @@ class HospitalEnvironment:
                 doctor = self.doctors[action.doctor_id]
 
                 if not doctor["busy"] and not patient["treated"]:
-                    valid_assignment = True
                     doctor["busy"] = True
                     patient["treated"] = True
 
-                    # ✅ track critical treated
+                    reward += 1
                     if patient["critical"]:
-                        self.critical_treated += 1
+                        reward += 2
 
                     doctor["busy"] = False
-
-        # 🔥 REWARD SYSTEM (UPGRADED)
-        if valid_assignment:
-            if patient["critical"]:
-                reward += 5
-            else:
-                reward += 1
-            reward += 0.5
-        else:
-            reward -= 1
-
-        # 🔥 waiting penalty
-        for p in self.patients:
-            if not p["treated"]:
-                if p["critical"]:
-                    reward -= 0.5
                 else:
-                    reward -= 0.1
+                    reward -= 0.5
+            else:
+                reward -= 0.5
 
-        reward -= 0.05  # step penalty
+        reward -= 0.1
 
+        # ✅ FIXED DONE LOGIC
         done = all(p["treated"] for p in self.patients)
-        done = done or self.step_count >= self.max_steps
+        if self.step_count >= self.max_steps:
+            done = True
 
-        obs = HospitalObservation(
+        return HospitalObservation(
             waiting_patients=[p["id"] for p in self.patients if not p["treated"]],
             free_doctors=[i for i, d in enumerate(self.doctors) if not d["busy"]],
             critical_patients=[p["id"] for p in self.patients if p["critical"] and not p["treated"]],
             reward=reward,
             done=done
         )
-
-        # ✅ print final score when done
-        if done:
-            print("FINAL SCORE:", self.get_score())
-
-        return obs
 
     def state(self):
         return HospitalState(
