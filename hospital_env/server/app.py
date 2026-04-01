@@ -27,6 +27,7 @@ Usage:
     # Or run directly:
     python -m server.app
 """
+from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from openenv.core.env_server.http_server import create_app
@@ -52,6 +53,15 @@ app = create_app(
     max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
 )
 
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow all (for dev)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def main(host: str = "0.0.0.0", port: int = 8000):
     """
